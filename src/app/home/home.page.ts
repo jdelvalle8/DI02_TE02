@@ -38,14 +38,16 @@ export class HomePage {
   hayDatos = computed(() => this.restaurantesCargados().length > 0);
 
   // Carga los restaurantes desde Firebase y muestra un toast de confirmación
-  async cargarDatos() {
+  async cargarDatos(mostrarMensaje = true) {
     this.cargando.set(true);
     try {
       const datos = await this.restauranteService.getAll();
       this.restaurantesCargados.set(datos);
-      this.mostrarToast(`${datos.length} restaurantes cargados`, 'success');
-    } catch {
-      this.mostrarToast('Error al cargar los datos desde Firebase', 'danger');
+      if (mostrarMensaje) {
+        this.mostrarToast(`${datos.length} restaurantes cargados`, 'success');
+      }
+        } catch (error: any) {
+      this.mostrarToast(this.mensajeError(error, 'cargar los datos'), 'danger');
     } finally {
       this.cargando.set(false);
     }
@@ -66,7 +68,7 @@ export class HomePage {
   }
 
   // Borra todos los datos de Firebase y sube los restaurantes del JSON local
-  async importarJSON() {
+    async importarJSON() {
     this.importando.set(true);
     const loading = await this.loadingCtrl.create({
       message: 'Borrando datos anteriores...',
@@ -82,10 +84,7 @@ export class HomePage {
     } catch (error: any) {
       await loading.dismiss();
       console.error('Error al importar JSON:', error);
-      const msg = error?.code === 'permission-denied'
-        ? 'Sin permisos en Firebase. Revisa las reglas de seguridad.'
-        : 'Error al importar. Revisa tu conexión a internet.';
-      this.mostrarToast(msg, 'danger');
+      this.mostrarToast(this.mensajeError(error, 'importar'), 'danger');
     } finally {
       this.importando.set(false);
     }
@@ -109,9 +108,9 @@ export class HomePage {
             try {
               await this.restauranteService.delete(r.id);
               this.restaurantesCargados.update(lista => lista.filter(x => x.id !== r.id));
-              this.mostrarToast(`${r.documentName} eliminado`, 'success');
-            } catch {
-              this.mostrarToast('Error al borrar el restaurante', 'danger');
+              this.mostrarToastConDeshacer(r);
+            } catch (error: any) {
+              this.mostrarToast(this.mensajeError(error, 'borrar el restaurante'), 'danger');
             }
           }
         }
@@ -126,9 +125,10 @@ export class HomePage {
       component: AddRestauranteModalComponent,
     });
     await modal.present();
-    const { role } = await modal.onWillDismiss();
+    const { data, role } = await modal.onWillDismiss();
     if (role === 'confirm') {
-      await this.cargarDatos();
+      await this.cargarDatos(false);
+      this.mostrarToast(`El restaurante ${data?.documentName} ha sido añadido con éxito`, 'success');
     }
   }
 
@@ -136,12 +136,48 @@ export class HomePage {
   private async mostrarToast(mensaje: string, color: 'success' | 'danger' | 'warning') {
     const toast = await this.toastCtrl.create({
       message: mensaje,
-      duration: 3000,
+      duration: color === 'success' ? 3000 : 0,
       color,
       position: 'bottom',
       buttons: [{ text: 'X', role: 'cancel' }]
     });
     await toast.present();
+  }
+
+  // Toast de borrado con botón deshacer que dura 6 segundos
+  private async mostrarToastConDeshacer(r: Restaurante) {
+    const toast = await this.toastCtrl.create({
+      message: `${r.documentName} eliminado`,
+      duration: 6000,
+      color: 'success',
+      position: 'bottom',
+      buttons: [
+        {
+          text: 'Deshacer',
+          handler: async () => {
+            try {
+              // Se vuelve a crear sin el id antiguo
+              const datos: Restaurante = { ...r };
+              delete datos.id;
+              await this.restauranteService.add(datos);
+              await this.cargarDatos(false);
+              this.mostrarToast(`${r.documentName} restaurado`, 'success');
+            } catch (error: any) {
+              this.mostrarToast(this.mensajeError(error, 'deshacer el borrado'), 'danger');
+            }
+          }
+        },
+        { text: 'X', role: 'cancel' }
+      ]
+    });
+    await toast.present();
+  }
+
+  // Devuelve el mensaje de error según si es permisos o conexión
+  private mensajeError(error: any, accion: string): string {
+    return error?.code === 'permission-denied'
+      ? 'Sin permisos en Firebase. Revisa las reglas de seguridad.'
+      : `Error al ${accion}. Revisa tu conexión a internet.`;
   }
 
 
@@ -236,5 +272,10 @@ export class HomePage {
   // Devuelve el número de soles Repsol (0 si no tiene o el valor no es numérico)
   repsolSoles(r: Restaurante): number {
     return Number(r.repsolSun) || 0;
+  }
+
+  // Devuelve un array para repetir un icono n veces
+  contar(n: number): number[] {
+    return Array.from({ length: n }, (_, i) => i);
   }
 }

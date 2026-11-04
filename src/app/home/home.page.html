@@ -1,29 +1,41 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title>Guía de Restaurantes Euskadi</ion-title>
+    <ion-title>
+      <!-- Icono de restaurante -->
+      <ion-icon src="assets/icon/restaurant-outline.svg"></ion-icon>
+      Guía de Restaurantes Euskadi</ion-title>
     <ion-buttons slot="end">
       <ion-button
         (click)="abrirModalAnadir()"
         [disabled]="cargando() || importando()"
         title="Añadir un restaurante nuevo">
-        <ion-icon slot="start" name="add-outline"></ion-icon>
+        <!-- Icono de + -->
+        <ion-icon slot="start" src="assets/icon/add-outline.svg"></ion-icon>
         Añadir
       </ion-button>
+      <!-- ConfirmarImportacion para indicar los restaurantes que se van a importar antes de aceptar -->
       <ion-button
         (click)="confirmarImportacion()"
         [disabled]="cargando() || importando()"
-        title="Importar restaurantes del JSON local a Firebase">
+        title="Importar restaurantes del JSON local a servidor">
         @if (importando()) {
           <ion-spinner name="crescent" style="width:18px;height:18px;margin-right:6px;"></ion-spinner>
+        } @else {
+          <!-- Icono de nube upload -->
+          <ion-icon slot="start" src="assets/icon/cloud-upload-outline.svg"></ion-icon>
         }
         Importar JSON
       </ion-button>
+      <!-- Modificado Firebase por servidor -->
       <ion-button
         (click)="cargarDatos()"
         [disabled]="cargando() || importando()"
-        title="Cargar restaurantes desde Firebase">
+        title="Cargar restaurantes desde el servidor">
         @if (cargando()) {
           <ion-spinner name="crescent" style="width:18px;height:18px;margin-right:6px;"></ion-spinner>
+        } @else {
+          <!-- Icono de nube download -->
+          <ion-icon slot="start" src="assets/icon/cloud-download-outline.svg"></ion-icon>
         }
         Cargar datos
       </ion-button>
@@ -33,8 +45,16 @@
 
 <ion-content class="ion-padding">
 
+  <!-- Estado de carga de restaurantes -->
+  @if (cargando()) {
+    <ion-item lines="none" color="light" style="border-radius: 8px;">
+      <ion-spinner slot="start" name="crescent"></ion-spinner>
+      <ion-label>Cargando restaurantes...</ion-label>
+    </ion-item>
+  }
+
   <!-- Añadir mensaje cuando no hay datos -->
-  @if (!hayDatos()) {
+  @if (!hayDatos() && !cargando()) {
     <ion-item lines="none" color="light" style="border-radius: 8px;">
       <ion-label class="ion-text-wrap">
         Pulsa <strong>Cargar datos</strong> para ver los restaurantes disponibles.
@@ -110,12 +130,26 @@
     </ion-row>
   </ion-grid>
 
+  <!-- Si hay filtros activos boton para limpiar todos los filtros -->
+  @if (hayFiltrosActivos()) {
+    <ion-button
+      fill="outline"
+      color="danger"
+      size="small"
+      title="Quitar todos los filtros"
+      (click)="limpiarTodosFiltros()">
+      <ion-icon slot="start" src="assets/icon/close-circle-outline.svg"></ion-icon>
+      Limpiar todos los filtros
+    </ion-button>
+  }
+
   <!-- Contador de restaurantes filtrados -->
   @if (hayDatos()) {
     <ion-item lines="none">
       <ion-label>
         Mostrando <strong>{{ restaurantesFiltrados().length }}</strong>
         de <strong>{{ restaurantesCargados().length }}</strong> restaurantes
+        <!-- Para filtrar si no hay resultados -->
         @if (restaurantesFiltrados().length === 0 && hayFiltrosActivos()) {
           · <em>Prueba a cambiar los filtros</em>
         }
@@ -151,15 +185,24 @@
               <td class="center">
                 @if (r.web) {
                   <a [href]="r.web" target="_blank" [title]="r.web" class="web-link">
+                    <ion-icon src="assets/icon/globe-outline.svg"></ion-icon>
                     Enlace
                   </a>
                 }
               </td>
               <td class="center">
-                {{ estrellasMichelin(r) > 0 ? estrellasMichelin(r) : '-' }}
+                @for (i of contar(estrellasMichelin(r)); track i) {
+                  <ion-icon src="assets/icon/star.svg" color="warning"></ion-icon>
+                } @empty {
+                  -
+                }
               </td>
               <td class="center">
-                {{ repsolSoles(r) > 0 ? repsolSoles(r) : '-' }}
+                @for (i of contar(repsolSoles(r)); track i) {
+                  <ion-icon src="assets/icon/sunny.svg" color="danger"></ion-icon>
+                } @empty {
+                  -
+                }
               </td>
               <td class="center">
                 <ion-button fill="clear" color="danger" size="small"
